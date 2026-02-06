@@ -1,59 +1,68 @@
 import { NextResponse } from "next/server";
 import { generateWithGemini } from "@/lib/gemini";
 import { postGithubComment } from "@/lib/github";
+import { getAgentState } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
-    const { prDiff, repo, prNumber, thoughtSignature } = await req.json();
+    const body = await req.json();
 
-    if (!prDiff || !repo || !prNumber) {
-      return NextResponse.json({ error: "Missing required PR data" }, { status: 400 });
+    // 1. Extract GitHub-specific fields from the payload you provided
+    const prNumber = body.pull_request?.number || body.number;
+    const repo = body.repository?.full_name;
+    const diffUrl = body.pull_request?.diff_url;
+
+    // 2. Fetch the actual code diff text from GitHub
+    let prDiff = "";
+    if (diffUrl) {
+      const diffResponse = await fetch(diffUrl);
+      prDiff = await diffResponse.text();
     }
 
-    // Context-Aware Prompt for Shadow-PM
-    const prompt = `
-      ROLE: You are Shadow-PM, the strategic guardian of this project.
-      CONTEXT: You have been provided with a Thought Signature representing our meeting decisions.
-      
-      TASK:
-      1. Review the following Code Diff.
-      2. Cross-reference it with the strategic intent stored in your signature.
-      3. Identify "Strategic Drift" (e.g., using a library we explicitly rejected, or skipping a requirement we prioritized).
-      
-      FORMAT:
-      - Start with a "Strategic Alignment" score (High/Med/Low).
-      - List specific concerns as bullet points.
-      - Keep it brief, professional, and firm.
+    // 3. Fallback for manual dashboard testing
+    if (!prDiff && body.prDiff) prDiff = body.prDiff;
 
-      PR DIFF:
-      ${prDiff.substring(0, 10000)} // Safety truncation to stay within token limits
+    // 4. Validate before hitting Gemini
+    if (!prDiff || !repo || !prNumber) {
+      return NextResponse.json({ 
+        error: "Missing data", 
+        debug: { hasDiff: !!prDiff, repo, prNumber } 
+      }, { status: 400 });
+    }
+
+    // 5. Fetch the Strategic Intent (Thought Signature) from your DB
+    const state = await getAgentState("hackathon-demo-1");
+
+    // 6. Gemini Strategic Audit
+    const prompt = `
+      ROLE: Shadow-PM Strategic Sentinel.
+      INTENT: ${state?.strategicIntent || "Follow standard best practices."}
+      
+      TASK: Review this Diff. Does it violate the intent?
+      - Intent: Red buttons, Green navbar.
+      - If code uses Yellow/Blue, it's a VIOLATION.
+
+      DIFF:
+      ${prDiff.substring(0, 5000)}
     `;
 
-    // 🧠 The "Magic" Turn: Resuming the train of thought
-    let reviewText = "";
-    try {
-      const brainResult = await generateWithGemini(prompt, {
-        thinkingLevel: 'HIGH',
-        thoughtSignature: thoughtSignature 
-      });
-      reviewText = brainResult.text;
-    } catch (sigError) {
-      console.warn("Signature session expired, falling back to zero-shot review.");
-      const fallbackResult = await generateWithGemini(prompt, { thinkingLevel: 'MEDIUM' });
-      reviewText = `⚠️ *Note: Session memory expired, reviewing based on current diff:* \n\n${fallbackResult.text}`;
-    }
+    const brainResult = await generateWithGemini(prompt, {
+      thinkingLevel: 'HIGH',
+      thoughtSignature: state?.thoughtSignature 
+    });
 
-    // 🚀 Action Era: Post the result as a comment on the GitHub PR
-    const githubResponse = await postGithubComment(repo, prNumber, reviewText);
+    // 7. Post the result back to GitHub
+    const commentBody = `🤖 **Shadow-PM Audit Result**\n\n${brainResult.text}`;
+    const githubResponse = await postGithubComment(repo, prNumber, commentBody);
 
     return NextResponse.json({ 
       success: true, 
-      review: reviewText,
-      githubStatus: githubResponse.id ? "Comment Posted" : "Failed to Post"
+      review: brainResult.text,
+      githubStatus: "Comment Posted"
     });
 
   } catch (error: any) {
-    console.error("PR Review Pipeline Error:", error);
+    console.error("Pipeline Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
