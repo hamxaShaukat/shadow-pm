@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generateWithGemini } from "@/lib/gemini";
 import { postGithubComment } from "@/lib/github";
 import { getAgentState } from "@/lib/db";
-
+export const maxDuration = 60; // Adds extra time for AI thinking
 export async function POST(req: Request) {
   try {
     const body = await req.json();
