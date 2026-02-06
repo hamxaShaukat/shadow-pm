@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const prompt = `
       ROLE: Shadow-PM Strategic Sentinel.
       INTENT: ${state?.strategicIntent || "Follow standard best practices."}
-      
+      Be concise. Use a table for violations if possible. End with a clear 'Approved' or 'Changes Requested' status.
       TASK: Review this Diff. Does it violate the intent?
       - Intent: Red buttons, Green navbar.
       - If code uses Yellow/Blue, it's a VIOLATION.
