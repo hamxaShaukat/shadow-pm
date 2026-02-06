@@ -108,7 +108,7 @@ export async function generateWithMedia(
         { text: prompt }
       ],
       config: { 
-        thinkingConfig: { includeThoughts: true, thinkingLevel: 'HIGH' },
+        thinkingConfig: { includeThoughts: true, thinkingLevel: 'MEDIUM' },
         thoughtSignature: config.thoughtSignature
       } as any,
     });
