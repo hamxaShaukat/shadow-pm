@@ -29,7 +29,63 @@ yarn install
 
 Create a `.env.local` file in the project root (this file must NOT be committed).
 
-Example `.env.local` (replace placeholder values):
+### Step 1: Get Firebase Configuration
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create a new project or select an existing one
+3. Click the **Settings icon** (gear) in the top-left
+4. Go to **Project settings** tab
+5. Under **Your apps** section, select your web app or create a new one
+6. Copy the following values from the Firebase config:
+   - `FIREBASE_API_KEY`
+   - `FIREBASE_AUTH_DOMAIN`
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_STORAGE_BUCKET`
+   - `FIREBASE_MESSAGING_SENDER_ID`
+   - `FIREBASE_APP_ID`
+7. (Optional) Copy `MEASUREMENT_ID` from Google Analytics (if enabled)
+
+### Step 2: Get Google Gemini API Key
+
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Click **Create API key**
+3. Copy the API key and save it as `GOOGLE_GEMINI_API_KEY`
+4. Make sure the Gemini API is enabled in [Google Cloud Console](https://console.cloud.google.com)
+
+### Step 3: Get GitHub Personal Access Token
+
+1. Go to [GitHub Settings → Personal access tokens](https://github.com/settings/tokens)
+2. Click **Generate new token** (classic)
+3. Give it a name like "shadow-pm"
+4. Select these scopes:
+   - `repo` (full control of private repositories)
+   - `workflow` (update GitHub Actions and workflows)
+5. Click **Generate token** and copy the token as `GITHUB_TOKEN`
+6. ⚠️ **Important**: Save this token securely—you'll only see it once!
+
+### Step 4: Get Slack Webhook URL
+
+1. Go to [Slack API Console](https://api.slack.com/apps)
+2. Create a new app or select an existing one
+3. Go to **Incoming Webhooks** (in the left sidebar)
+4. Click **Add New Webhook to Workspace**
+5. Select the channel where Shadow-PM notifications should appear
+6. Copy the Webhook URL and save it as `SLACK_WEBHOOK_URL`
+
+### Step 5: Get Jira Credentials
+
+1. Go to [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click **Create API token**
+3. Give it a name and click **Create**
+4. Copy the token and save it as `JIRA_API_TOKEN`
+5. Your `JIRA_DOMAIN` is your company's Jira URL (e.g., `yourcompany.atlassian.net`)
+6. Your `JIRA_USER_EMAIL` is your Atlassian account email
+7. Your `JIRA_PROJECT_KEY` is the key of your project (e.g., `SCRUM`, `PROJ`)
+   - Find it in your Jira project settings or on the project page
+
+### Step 6: Create `.env.local` File
+
+Create a `.env.local` file in the project root with all the variables:
 
 ```
 # Firebase
@@ -39,6 +95,7 @@ FIREBASE_PROJECT_ID=your_project_id
 FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 FIREBASE_MESSAGING_SENDER_ID=1234567890
 FIREBASE_APP_ID=1:123:web:abcdef
+MEASUREMENT_ID=G-XXXXXXXXXX
 
 # Google Gemini
 GOOGLE_GEMINI_API_KEY=sk-xxx
@@ -54,12 +111,43 @@ JIRA_PROJECT_KEY=PROJ
 
 # Slack
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
-
 ```
 
-Notes:
+### Step 7: Configure GitHub Webhooks (IMPORTANT - Do This Before Running Dev Server)
+
+For each repository you want Shadow-PM to manage, follow these steps:
+
+1. Go to your **GitHub repository**
+2. Click **Settings** tab
+3. In the left sidebar, click **Webhooks**
+4. Click **Add webhook** button
+5. In the **Payload URL** field, enter:
+   ```
+   https://your-domain.com/api/github-webhook
+   ```
+   - Replace `your-domain.com` with your actual deployed URL
+   - For **local development**, use a tunneling service like [ngrok](https://ngrok.com) to expose your local server:
+     ```bash
+     ngrok http 3000
+     ```
+     Then use the ngrok URL: `https://xxxxx.ngrok.io/api/github-webhook`
+
+6. Set **Content type** to: `application/json`
+7. Leave **Secret** empty (or add one if you modify the webhook handler)
+8. Under **Which events would you like to trigger this webhook?**:
+   - Select **Let me select individual events**
+   - ✅ Check **Pull requests**
+   - ✅ Check **Issues**
+   - Uncheck everything else
+9. Make sure the **Active** checkbox is checked
+10. Click **Add webhook**
+
+Shadow-PM will now automatically receive PR and issue events from this repository!
+
+**Notes:**
 - The project reads environment variables from `process.env` in server code (`lib/` modules). Put them in `.env.local` when developing locally.
 - Do NOT commit `.env.local` or any secret to source control.
+- All secrets should be added to `.gitignore` (Next.js default ignores `.env.local` automatically).
 
 Setting environment variables on Windows (example):
 
